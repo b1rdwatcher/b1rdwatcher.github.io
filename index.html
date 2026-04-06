@@ -35,42 +35,84 @@ button{padding:5px;margin:5px}
 <div id="list"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
 <script>
+const url = "https://nhgfnwdlqgtuhumgpvfo.supabase.co";
+const key = "sb_publishable_LvuAMG5Z_wkmgyE8m7hmHA_q4-4ai4S";
+const client = window.supabase.createClient(url, key);
 
-const url = "https://nhgfnwdlqgtuhumgpvfo.supabase.co"
-const key = "sb_publishable_LvuAMG5Z_wkmgyE8m7hmHA_q4-4ai4S"
-const supabase = window.supabase.createClient(url,key)
+async function load() {
+  const { data, error } = await client
+    .from("site_stats")
+    .select("*")
+    .eq("id", 1)
+    .single();
 
-async function load(){
-let {data}=await supabase.from("site_stats").select("*").single()
-document.getElementById("flower").innerText=data.flower_count
+  if (error) {
+    console.log("读取花数失败：", error);
+  } else {
+    document.getElementById("flower").innerText = data.flower_count;
+  }
 
-let {data:msg}=await supabase.from("messages").select("*")
-let html=""
-msg.forEach(m=>{
-html+=m.name+"："+m.content+"<br>"
-})
-document.getElementById("list").innerHTML=html
+  const { data: msg, error: msgError } = await client
+    .from("messages")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (msgError) {
+    console.log("读取留言失败：", msgError);
+    return;
+  }
+
+  let html = "";
+  msg.forEach(m => {
+    html += (m.name || "匿名") + "：" + (m.content || "") + "<br>";
+  });
+  document.getElementById("list").innerHTML = html;
 }
 
-async function flower(){
-let n=parseInt(document.getElementById("flower").innerText)+1
-await supabase.from("site_stats").update({flower_count:n}).eq("id",1)
-load()
+async function flower() {
+  const { error } = await client.rpc("increment_flower");
+  if (error) {
+    console.log("献花失败：", error);
+    alert("献花失败");
+    return;
+  }
+  load();
 }
 
-async function send(){
-let name=document.getElementById("name").value
-let msg=document.getElementById("msg").value
-await supabase.from("messages").insert({name,content:msg})
-load()
+async function send() {
+  const name = document.getElementById("name").value.trim();
+  const msg = document.getElementById("msg").value.trim();
+
+  if (!name) {
+    alert("请先输入名字");
+    return;
+  }
+
+  if (!msg) {
+    alert("请先输入留言");
+    return;
+  }
+
+  const { error } = await client
+    .from("messages")
+    .insert({ name: name, content: msg });
+
+  if (error) {
+    console.log("留言失败：", error);
+    alert("留言失败");
+    return;
+  }
+
+  document.getElementById("msg").value = "";
+  load();
 }
 
-load()
-
+load();
 </script>
+  
 
 </body>
 </html>
